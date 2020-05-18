@@ -25,10 +25,34 @@ export default class Editor extends Component {
     open(page){
         this.currentPage = `../${page}`;
         this.iframe.load(this.currentPage, () => { // выполнится, когда iframe полностью загрузился
-            console.log(this.currentPage);
-        })
+            const body = this.iframe.contentDocument.body;
+
+    // Применим рекурсию. Будем перебирать все узлы до тех пор пока не найдем текстовый
+            let textNodes = [];
+
+            function recursy (element) {
+                element.childNodes.forEach(node => {
+
+                    if(node.nodeName === '#text' && node.nodeValue.replace(/\s+/g, "").length > 0) { // избавимся от пустых текстовых node 
+                        textNodes.push(node);
+                    } else {
+                        recursy(node);
+                    }
+                })
+            }
+
+           recursy(body);
+
+           textNodes.forEach(node => {
+               const wrapper = this.iframe.contentDocument.createElement('text-editor') // создаем свой собственный тэг text-editor
+               node.parentNode.replaceChild(wrapper, node);
+               wrapper.appendChild(node);
+               wrapper.contentEditable = 'true';
+           })
+        });
         
     }
+
 
     loadPageList() {
         axios
@@ -71,7 +95,16 @@ export default class Editor extends Component {
             //         type="text"/>
             //     <button onClick={this.createNewPage}>Создать страницу</button>
             //     {pages}
-            // </>
+            // </eltv>
         )
     }
 }
+
+// В html есть ручной режим редактирования элементов
+// Любому элементу можем приписать свойство contenteditable и изменять 
+
+//$0.innerHtml - показать все про элемент
+
+//$0.childnodes - какие есть дети
+
+// Поэтому будем искать именно текстовые узлы и включать им contenteditable
