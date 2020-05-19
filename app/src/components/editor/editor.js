@@ -23,36 +23,59 @@ export default class Editor extends Component {
         this.loadPageList();
     }
     open(page){
-        this.currentPage = `../${page}`;
-        this.iframe.load(this.currentPage, () => { // выполнится, когда iframe полностью загрузился
-            const body = this.iframe.contentDocument.body;
+        this.currentPage = `../${page}?rnd=${Math.random}`; // ?rnd=${Math.random} - чтобы обойти кэширование на странице
 
-    // Применим рекурсию. Будем перебирать все узлы до тех пор пока не найдем текстовый
-            let textNodes = [];
-
-            function recursy (element) {
-                element.childNodes.forEach(node => {
-
-                    if(node.nodeName === '#text' && node.nodeValue.replace(/\s+/g, "").length > 0) { // избавимся от пустых текстовых node 
-                        textNodes.push(node);
-                    } else {
-                        recursy(node);
-                    }
-                })
-            }
-
-           recursy(body);
-
-           textNodes.forEach(node => {
-               const wrapper = this.iframe.contentDocument.createElement('text-editor') // создаем свой собственный тэг text-editor
-               node.parentNode.replaceChild(wrapper, node);
-               wrapper.appendChild(node);
-               wrapper.contentEditable = 'true';
-           })
-        });
+    // Получим чистый исходный код страницы
+        axios
+            .get(`../${page}`)    
+            .then(res => this.parseStrToDOM(res.data)) // в консоль получим не текст а DOM структуру 
+            .then(this.wrapTextNodes)
+            .then(this.serializeDOMToString())
+            .then(html => axios.post('./api/saveTempPage.php', {html}))
+   
+        // this.iframe.load(this.currentPage, () => { 
+        // });
         
     }
+// чтобы распарсить строку в DOM структуру :
+    parseStrToDOM(str) {
+        const parser = new DOMParser();
+        return parser.parseFromString(str, "text/html")
+    }
 
+    wrapTextNodes(dom) {
+        const body = dom.body;
+
+        let textNodes = [];
+
+        function recursy (element) {
+            element.childNodes.forEach(node => {
+
+                if(node.nodeName === '#text' && node.nodeValue.replace(/\s+/g, "").length > 0) { // избавимся от пустых текстовых node 
+                    textNodes.push(node); // добавляем в наш массив элемент с текстом
+                } else {
+                    recursy(node); 
+                }
+            })
+        }
+
+        recursy(body);
+
+        textNodes.forEach(node => {
+            const wrapper = dom.createElement('text-editor') // создаем свой собственный тэг text-editor
+            node.parentNode.replaceChild(wrapper, node); // заменит элемент node элементом wrapper 
+            wrapper.appendChild(node); // и добавим внутрь wraper наш контент  node 
+            wrapper.contentEditable = 'true'; // ставим ему свойство редоктирования
+        })
+
+        return dom; // измененный dom где все текстовые ноды обернуты нашими элементами
+    }
+    // превратим DOM структуру в строку чтобы отправить на сервер
+    serializeDOMToString(dom){
+        // конвертируем 
+        const serializer = new XMLSerializer();
+        return serializer.serializeToString(dom);
+    }
 
     loadPageList() {
         axios
@@ -100,11 +123,14 @@ export default class Editor extends Component {
     }
 }
 
-// В html есть ручной режим редактирования элементов
-// Любому элементу можем приписать свойство contenteditable и изменять 
 
-//$0.innerHtml - показать все про элемент
 
-//$0.childnodes - какие есть дети
 
-// Поэтому будем искать именно текстовые узлы и включать им contenteditable
+/// Сохранение редактирования
+
+// 1. Перед тем как передавать нашу страницу в iframe мы должны пройтись по элементам и обозначить текстовые узлы не запуская JS на странице
+//    Это будет первоначальная структура которая должна отображаться на странице
+// 2. После этого мы должны сохранить две копии нашего DOM дерева. Одна из них не будет подвергаться изменениям от сторонних JS скриптов, а вторая будет
+//    передаваться в iframe и будет изменена этими скриптами. Таким образом у нас получится чистая копия которая содержит такую же структуру как у нас была в верстке
+//    и загрязненная копия которая у нас уже подвержена работе скриптов и вней что то может поменяться. Затем мы будем отслеживать все изменения в iframe и в 
+//    чистой копии делать нужные нам изменения.
