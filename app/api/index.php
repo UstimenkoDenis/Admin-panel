@@ -1,5 +1,5 @@
 <?php
-$htmlfiles = glob("../../*.html");
+$htmlfiles = glob("../../*.html"); // разыскиваем все html в корне
 $response = [];
 
 foreach ($htmlfiles as $file) {
