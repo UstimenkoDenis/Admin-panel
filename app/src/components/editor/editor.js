@@ -24,10 +24,10 @@ export default class Editor extends Component {
     }
 
     open(page){
-       this.currentPage = `../${page}?rnd=${Math.random()}`; // ?rnd=${Math.random} - чтобы обойти кэширование на странице
+       this.currentPage = page; 
         // Получим чистый исходный код страницы
         axios
-            .get(`../${page}`)    
+            .get(`../${page}?rnd=${Math.random()}`)    // ?rnd=${Math.random} - чтобы обойти кэширование на странице
             .then(res => this.parseStrToDOM(res.data)) //  переведем текст в DOM структуру 
             .then(this.wrapTextNodes)  // оборачиваем текстовые ноды
             .then(dom => {
@@ -42,12 +42,20 @@ export default class Editor extends Component {
                   
     }
 
+    save() {
+        const newDom = this.virtualDom.cloneNode(this.virtualDom);
+        this.unwrapTextNodes(newDom);
+        const html = this.serializeDOMToString(newDom);
+        axios
+            .post("./api/savePage.php", {pageName: this.currentPage, html})
+    }
+
     enableEditing() {
         this.iframe.contentDocument.body.querySelectorAll("text-editor").forEach( element => {
             element.contentEditable = "true";                 // ставим ему свойство редактирования
             element.addEventListener("input", () => {
                 this.onTextEdit(element);  // этот метод отвечает за синхронизацию всех изменений
-            })
+            });
         });        
     }
 
@@ -95,6 +103,12 @@ export default class Editor extends Component {
        
     }
 
+    unwrapTextNodes(dom) {
+        dom.body.querySelectorAll("text-editor").forEach(element => {
+            element.parentNode.replaceChild(element.firstChild, element);
+        })
+    }
+
     loadPageList() {
         axios
             .get("./api")
@@ -128,8 +142,12 @@ export default class Editor extends Component {
         // });
 
         return (  
-                      
-            <iframe src = {this.currentPage} frameBorder = "0"></iframe>
+            <>     
+                <button onClick = {() => this.save()}>Click</button>    
+                 <iframe src = {this.currentPage} frameBorder = "0"></iframe>
+                 
+            </>
+
             // <>
             //     <input
             //         onChange={(e) => {this.setState({newPageName: e.target.value})}} 
