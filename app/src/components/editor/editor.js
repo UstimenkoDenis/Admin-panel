@@ -8,6 +8,7 @@ import Spinner from '../spinner';
 import ConfirmModal from '../confirm-modal';
 import ChooseModal from '../choose-modal';
 import Panel from '../panel/panel';
+import EditorMeta from '../editor-meta';
 export default class Editor extends Component {
     constructor() {
         super();
@@ -156,8 +157,8 @@ export default class Editor extends Component {
                 <Panel/>                 
                 <ConfirmModal modal={modal} target={'modal-save'} method={this.save}/>
                 <ChooseModal  modal={modal} target={'modal-open'} data={pageList} redirect={this.init} />          
-                <ChooseModal  modal={modal} target={'modal-backup'} data={backupsList} redirect={this.restoreBackup} />          
-
+                <ChooseModal  modal={modal} target={'modal-backup'} data={backupsList} redirect={this.restoreBackup} /> 
+                {this.virtualDom ? <EditorMeta modal={modal} target={'modal-meta'} virtualDom={this.virtualDom}/>: false}}
             </>          
         )
     }
